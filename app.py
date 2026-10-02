@@ -162,7 +162,7 @@ async def index_document(file: UploadFile = File(...)):
 
         return {"status": "success", "filename": file.filename, "chunks_indexed": len(chunks)}
     except Exception as e:
-        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+        return JSONResponse({"status": "error", "message": f"{type(e).__name__}: {str(e)}"}, status_code=500)
 
 @app.post("/api/clear-vault")
 async def clear_vault():

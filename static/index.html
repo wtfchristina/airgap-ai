@@ -94,7 +94,7 @@
         const res = await fetch('/api/status');
         const data = await res.json();
         document.getElementById('hw-status').innerText = `${data.cpu_threads} CPU Threads | ${data.gpu_detected ? 'Apple Metal (M1) Active' : 'CPU Mode'}`;
-        document.getElementById('vault-status').innerText = `${data.indexed_chunks} vector chunks indexed`;
+        document.getElementById('vault-status').innerText = `${(data.indexed_chunks !== undefined ? data.indexed_chunks : 0) ?? 0} vector chunks indexed`;
         
         modelSelect.innerHTML = '';
         data.available_models.forEach(m => {
@@ -135,7 +135,7 @@
         appendMessage('system', `Indexed ${data.chunks_indexed} semantic chunks into SQLite vault.`);
         loadStatus();
       } else {
-        appendMessage('system', `Indexing failed: ${data.message}`);
+        appendMessage('system', `Indexing failed: ${data.message || data.detail || JSON.stringify(data)}`);
       }
     }
 
