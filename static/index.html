@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Airgap AI - Edge Neural Engine</title>
+  <title>Airgap AI - Edge Neural Studio</title>
   <style>
     :root {
       --bg: #0b0f19;
@@ -24,6 +24,7 @@
     .msg.user { align-self: flex-end; background-color: var(--user); border: 1px solid #3b82f6; }
     .msg.assistant { align-self: flex-start; background-color: var(--assistant); border: 1px solid var(--border); }
     .msg.system { align-self: center; font-size: 0.8rem; color: var(--muted); }
+    #attachment-strip { display: none; background: #1a253c; border-top: 1px solid var(--border); padding: 0.5rem 1.5rem; font-size: 0.8rem; color: var(--accent); justify-content: space-between; align-items: center; }
     #input-bar { padding: 1rem 1.5rem; background: var(--panel); border-top: 1px solid var(--border); display: flex; gap: 0.75rem; align-items: flex-end; }
     textarea { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 0.75rem; resize: none; height: 52px; font-size: 0.95rem; }
     textarea:focus { outline: 1px solid var(--accent); }
@@ -39,12 +40,12 @@
   <div id="sidebar">
     <div>
       <h2 style="font-size: 1.15rem; font-weight: 700; color: var(--accent);">⚡ AIRGAP AI</h2>
-      <div style="font-size: 0.7rem; color: var(--muted); margin-top: 2px;">Offline Neural & Vector Engine</div>
+      <div style="font-size: 0.7rem; color: var(--muted); margin-top: 2px;">Offline Neural & Vision Studio</div>
     </div>
 
     <div>
       <label>Hardware Target</label>
-      <div id="hw-status" class="stat-badge" style="margin-top: 4px;">Checking Metal...</div>
+      <div id="hw-status" class="stat-badge" style="margin-top: 4px;">Detecting Metal...</div>
     </div>
 
     <div>
@@ -56,7 +57,7 @@
 
     <div>
       <label>Knowledge Vault (SQLite RAG)</label>
-      <div id="vault-status" class="stat-badge" style="margin-top: 4px; margin-bottom: 6px;">0 vectors indexed</div>
+      <div id="vault-status" class="stat-badge" style="margin-top: 4px; margin-bottom: 6px;">0 vector chunks indexed</div>
       <input type="file" id="pdf-file-input" accept="application/pdf" style="display:none" onchange="indexPdf(event)">
       <button class="action-btn" onclick="document.getElementById('pdf-file-input').click()">
         📥 Index PDF into Vault...
@@ -67,8 +68,16 @@
     </div>
 
     <div>
+      <label>Multimodal Vision</label>
+      <input type="file" id="image-file-input" accept="image/*" style="display:none" onchange="attachImage(event)">
+      <button class="action-btn" style="margin-top: 4px;" onclick="document.getElementById('image-file-input').click()">
+        🖼️ Attach Image / Diagram...
+      </button>
+    </div>
+
+    <div>
       <label>System Directive</label>
-      <textarea id="sys-prompt" style="width: 100%; height: 65px; margin-top: 4px; font-size: 0.8rem;">You are a precise, air-gapped technical assistant. Answer directly and concisely.</textarea>
+      <textarea id="sys-prompt" style="width: 100%; height: 60px; margin-top: 4px; font-size: 0.8rem;">You are a precise, air-gapped technical assistant. Answer directly and concisely.</textarea>
     </div>
   </div>
 
@@ -76,8 +85,14 @@
     <div id="messages">
       <div class="msg system">Neural runtime initialized. Zero external network egress.</div>
     </div>
+
+    <div id="attachment-strip">
+      <span id="attachment-label"></span>
+      <span style="cursor:pointer; color:#f87171;" onclick="clearImageAttachment()">✕ Remove Image</span>
+    </div>
+
     <div id="input-bar">
-      <textarea id="prompt-input" placeholder="Type a prompt or query against your indexed vault... (Shift+Enter for newline)"></textarea>
+      <textarea id="prompt-input" placeholder="Type a prompt or query... (Shift+Enter for newline)"></textarea>
       <button id="send-btn" onclick="sendMessage()">Send</button>
     </div>
   </div>
@@ -88,13 +103,14 @@
     const sendBtn = document.getElementById('send-btn');
     const modelSelect = document.getElementById('model-select');
     let history = [];
+    let currentImageBase64 = null;
 
     async function loadStatus() {
       try {
         const res = await fetch('/api/status');
         const data = await res.json();
         document.getElementById('hw-status').innerText = `${data.cpu_threads} CPU Threads | ${data.gpu_detected ? 'Apple Metal (M1) Active' : 'CPU Mode'}`;
-        document.getElementById('vault-status').innerText = `${(data.indexed_chunks !== undefined ? data.indexed_chunks : 0) ?? 0} vector chunks indexed`;
+        document.getElementById('vault-status').innerText = `${data.indexed_chunks ?? 0} vector chunks indexed`;
         
         modelSelect.innerHTML = '';
         data.available_models.forEach(m => {
@@ -135,7 +151,7 @@
         appendMessage('system', `Indexed ${data.chunks_indexed} semantic chunks into SQLite vault.`);
         loadStatus();
       } else {
-        appendMessage('system', `Indexing failed: ${data.message || data.detail || JSON.stringify(data)}`);
+        appendMessage('system', `Indexing failed: ${data.message}`);
       }
     }
 
@@ -143,6 +159,25 @@
       await fetch('/api/clear-vault', { method: 'POST' });
       appendMessage('system', 'Knowledge vault cleared.');
       loadStatus();
+    }
+
+    function attachImage(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        currentImageBase64 = e.target.result;
+        document.getElementById('attachment-strip').style.display = 'flex';
+        document.getElementById('attachment-label').innerText = `🖼️ Attached Image: ${file.name}`;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function clearImageAttachment() {
+      currentImageBase64 = null;
+      document.getElementById('attachment-strip').style.display = 'none';
+      document.getElementById('image-file-input').value = '';
     }
 
     inputEl.addEventListener('keydown', (e) => {
@@ -161,12 +196,23 @@
       sendBtn.disabled = true;
 
       const assistantMsg = appendMessage('assistant', '...');
+
+      let userContent;
+      if (currentImageBase64) {
+        userContent = [
+          { type: 'text', text: prompt },
+          { type: 'image_url', image_url: { url: currentImageBase64 } }
+        ];
+        clearImageAttachment();
+      } else {
+        userContent = prompt;
+      }
       
       const payload = {
         messages: [
           { role: 'system', content: document.getElementById('sys-prompt').value },
           ...history,
-          { role: 'user', content: prompt }
+          { role: 'user', content: userContent }
         ]
       };
 

@@ -50,8 +50,9 @@ def get_system_hardware():
     return threads, is_apple_silicon
 
 def get_available_models():
+    # Only return primary GGUFs, exclude standalone projector files
     files = glob.glob("models/*.gguf")
-    return [os.path.basename(f) for f in files]
+    return [os.path.basename(f) for f in files if "mmproj" not in f]
 
 def stop_llama_server():
     global llama_process
@@ -80,17 +81,24 @@ def start_llama_server(model_filename: str):
     cmd = [
         binary,
         "-m", model_path,
-        "-c", "8192",
+        "-c", "4096",
         "-t", str(max(1, threads - 1)),
         "-ngl", ngl,
         "--port", str(LLAMA_SERVER_PORT),
         "--host", "127.0.0.1"
     ]
 
-    print(f"[LAUNCH] Loading {model_filename} on Metal GPU...")
+    # Multimodal projector auto-link
+    base_prefix = model_filename.split("-")[0]
+    potential_projectors = glob.glob(f"models/{base_prefix}*mmproj*.gguf")
+    if potential_projectors:
+        print(f"[VISION] Attaching multimodal projector: {potential_projectors[0]}")
+        cmd.extend(["--mmproj", potential_projectors[0]])
+
+    print(f"[LAUNCH] Executing inference daemon: {' '.join(cmd)}")
     llama_process = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     current_model_file = model_filename
-    time.sleep(1.5)
+    time.sleep(2)
     return True
 
 @app.on_event("startup")
@@ -146,7 +154,7 @@ async def index_document(file: UploadFile = File(...)):
         chunks = chunk_text(full_text)
 
         if not chunks:
-            return JSONResponse({"status": "error", "message": "No extractable text"}, status_code=400)
+            return JSONResponse({"status": "error", "message": "No extractable text found"}, status_code=400)
 
         embeddings = list(embed_model.embed(chunks))
 
@@ -201,7 +209,8 @@ async def chat_proxy(request: Request):
     body = await request.json()
     messages = body.get("messages", [])
 
-    if messages and messages[-1]["role"] == "user":
+    # Text RAG enrichment if last message is pure text
+    if messages and messages[-1]["role"] == "user" and isinstance(messages[-1]["content"], str):
         user_query = messages[-1]["content"]
         relevant_context = retrieve_relevant_context(user_query)
         if relevant_context:
