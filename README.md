@@ -33,3 +33,19 @@ Built on Apple Silicon Metal acceleration, embedded SQLite vector indexing, and 
                |         +------------------------------+         |
                +--------------------------------------------------+
 ```
+
+## Quickstart
+
+```bash
+# Clone the repository
+git clone [https://github.com/wtfchristina/airgap-ai.git](https://github.com/wtfchristina/airgap-ai.git)
+cd airgap-ai
+
+# Place models in models/
+mkdir -p models
+# Download your .gguf models into the models/ folder
+
+# Launch the app
+chmod +x run.sh
+./run.sh
+
