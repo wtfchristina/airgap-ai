@@ -1,269 +1,547 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Airgap AI - Edge Neural Studio</title>
   <style>
     :root {
-      --bg: #0b0f19;
-      --panel: #131b2e;
-      --border: #23304d;
-      --text: #f1f5f9;
-      --muted: #8194b5;
-      --accent: #38bdf8;
-      --user: #1d4ed8;
-      --assistant: #1e293b;
+      --bg-dark: #0b0f19;
+      --panel-dark: #111827;
+      --panel-border: #1f2937;
+      --accent-blue: #2563eb;
+      --accent-hover: #1d4ed8;
+      --text-main: #f9fafb;
+      --text-muted: #9ca3af;
+      --chat-user: #2563eb;
+      --chat-ai: #1f2937;
+      --badge-bg: #064e3b;
+      --badge-text: #34d399;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; }
-    body { background-color: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
-    #sidebar { width: 330px; background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 1.25rem; gap: 1.1rem; }
-    #chat-container { flex: 1; display: flex; flex-direction: column; height: 100vh; }
-    #messages { flex: 1; overflow-y: auto; padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
-    .msg { max-width: 82%; padding: 0.85rem 1.15rem; border-radius: 8px; line-height: 1.55; font-size: 0.95rem; white-space: pre-wrap; word-break: break-word; }
-    .msg.user { align-self: flex-end; background-color: var(--user); border: 1px solid #3b82f6; }
-    .msg.assistant { align-self: flex-start; background-color: var(--assistant); border: 1px solid var(--border); }
-    .msg.system { align-self: center; font-size: 0.8rem; color: var(--muted); }
-    #attachment-strip { display: none; background: #1a253c; border-top: 1px solid var(--border); padding: 0.5rem 1.5rem; font-size: 0.8rem; color: var(--accent); justify-content: space-between; align-items: center; }
-    #input-bar { padding: 1rem 1.5rem; background: var(--panel); border-top: 1px solid var(--border); display: flex; gap: 0.75rem; align-items: flex-end; }
-    textarea { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 0.75rem; resize: none; height: 52px; font-size: 0.95rem; }
-    textarea:focus { outline: 1px solid var(--accent); }
-    select, button { background: var(--accent); color: #000; font-weight: 600; border: none; border-radius: 6px; padding: 0.65rem 1.1rem; cursor: pointer; }
-    select { width: 100%; background: #0b0f19; color: var(--text); border: 1px solid var(--border); }
-    .action-btn { background: transparent; color: var(--text); border: 1px solid var(--border); padding: 0.65rem; border-radius: 6px; font-size: 0.8rem; width: 100%; text-align: left; }
-    .action-btn:hover { background: var(--border); }
-    .stat-badge { font-size: 0.75rem; background: #0b0f19; padding: 0.55rem; border-radius: 5px; border: 1px solid var(--border); }
-    label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .sidebar {
+      width: 320px;
+      background-color: var(--panel-dark);
+      border-right: 1px solid var(--panel-border);
+      display: flex;
+      flex-direction: column;
+      padding: 1.25rem;
+      gap: 1.25rem;
+      overflow-y: auto;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .brand h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: #38bdf8;
+    }
+
+    .brand span {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .section-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 0.35rem;
+    }
+
+    .status-card {
+      background: #1e293b;
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      padding: 0.65rem 0.85rem;
+      font-size: 0.8rem;
+      color: #e2e8f0;
+    }
+
+    select,
+    button,
+    textarea {
+      width: 100%;
+      background-color: #1e293b;
+      border: 1px solid var(--panel-border);
+      color: var(--text-main);
+      border-radius: 6px;
+      padding: 0.6rem 0.75rem;
+      font-size: 0.85rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    select:focus,
+    textarea:focus {
+      border-color: var(--accent-blue);
+    }
+
+    button {
+      background-color: #1e293b;
+      cursor: pointer;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    button:hover {
+      background-color: #334155;
+    }
+
+    .btn-danger {
+      color: #f87171;
+    }
+
+    .btn-danger:hover {
+      background-color: rgba(239, 68, 68, 0.15);
+    }
+
+    .main-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .chat-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .system-msg {
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin: 0.5rem 0;
+    }
+
+    .message {
+      max-width: 75%;
+      padding: 0.85rem 1.15rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+    }
+
+    .message.user {
+      align-self: flex-end;
+      background-color: var(--chat-user);
+      color: #ffffff;
+    }
+
+    .message.ai {
+      align-self: flex-start;
+      background-color: var(--chat-ai);
+      border: 1px solid var(--panel-border);
+      color: var(--text-main);
+    }
+
+    .chat-thumbnail {
+      max-width: 240px;
+      max-height: 240px;
+      border-radius: 6px;
+      margin-bottom: 0.5rem;
+      display: block;
+      object-fit: cover;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .input-dock {
+      padding: 1rem 1.5rem;
+      background: var(--panel-dark);
+      border-top: 1px solid var(--panel-border);
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .attachment-pill {
+      display: none;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--badge-bg);
+      color: var(--badge-text);
+      padding: 0.35rem 0.75rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      width: fit-content;
+    }
+
+    .attachment-pill .remove-btn {
+      cursor: pointer;
+      font-weight: 700;
+      color: #ef4444;
+      margin-left: 0.35rem;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-end;
+    }
+
+    textarea {
+      resize: none;
+      height: 48px;
+      line-height: 1.4;
+      padding: 0.75rem;
+    }
+
+    .btn-send {
+      width: 100px;
+      height: 48px;
+      background-color: #38bdf8;
+      color: #0b0f19;
+      font-weight: 700;
+      border: none;
+    }
+
+    .btn-send:hover {
+      background-color: #0284c7;
+      color: #ffffff;
+    }
   </style>
 </head>
+
 <body>
-  <div id="sidebar">
-    <div>
-      <h2 style="font-size: 1.15rem; font-weight: 700; color: var(--accent);">⚡ AIRGAP AI</h2>
-      <div style="font-size: 0.7rem; color: var(--muted); margin-top: 2px;">Offline Neural & Vision Studio</div>
+
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>⚡ AIRGAP AI</h1>
+      <span>Offline Neural & Vision Studio</span>
     </div>
 
     <div>
-      <label>Hardware Target</label>
-      <div id="hw-status" class="stat-badge" style="margin-top: 4px;">Detecting Metal...</div>
+      <div class="section-title">Hardware Target</div>
+      <div class="status-card" id="hw-status">Detecting hardware...</div>
     </div>
 
     <div>
-      <label>Active Model</label>
-      <select id="model-select" onchange="switchModel(this.value)" style="margin-top: 4px;">
-        <option>Loading models...</option>
-      </select>
+      <div class="section-title">Active Model</div>
+      <select id="model-select" onchange="switchModel(this.value)"></select>
     </div>
 
     <div>
-      <label>Knowledge Vault (SQLite RAG)</label>
-      <div id="vault-status" class="stat-badge" style="margin-top: 4px; margin-bottom: 6px;">0 vector chunks indexed</div>
-      <input type="file" id="pdf-file-input" accept="application/pdf" style="display:none" onchange="indexPdf(event)">
-      <button class="action-btn" onclick="document.getElementById('pdf-file-input').click()">
+      <div class="section-title">Knowledge Vault (SQLite RAG)</div>
+      <div class="status-card" id="vault-status" style="margin-bottom: 0.5rem;">0 vector chunks indexed</div>
+      <input type="file" id="pdf-input" accept="application/pdf" style="display:none" onchange="uploadPDF(event)">
+      <button onclick="document.getElementById('pdf-input').click()" style="margin-bottom: 0.5rem;">
         📥 Index PDF into Vault...
       </button>
-      <button class="action-btn" style="margin-top: 4px; color: #f87171; border-color: rgba(248,113,113,0.3);" onclick="clearVault()">
+      <button class="btn-danger" onclick="clearVault()">
         🗑️ Clear Indexed Vault
       </button>
     </div>
 
     <div>
-      <label>Multimodal Vision</label>
-      <input type="file" id="image-file-input" accept="image/*" style="display:none" onchange="attachImage(event)">
-      <button class="action-btn" style="margin-top: 4px;" onclick="document.getElementById('image-file-input').click()">
+      <div class="section-title">Multimodal Vision</div>
+      <input type="file" id="image-input" accept="image/*" style="display:none" onchange="handleImageSelection(event)">
+      <button onclick="document.getElementById('image-input').click()">
         🖼️ Attach Image / Diagram...
       </button>
     </div>
 
     <div>
-      <label>System Directive</label>
-      <textarea id="sys-prompt" style="width: 100%; height: 60px; margin-top: 4px; font-size: 0.8rem;">You are a precise, air-gapped technical assistant. Answer directly and concisely.</textarea>
+      <div class="section-title">System Directive</div>
+      <textarea id="system-directive"
+        rows="3">You are a precise, air-gapped technical assistant. Answer directly and concisely.</textarea>
     </div>
-  </div>
+  </aside>
 
-  <div id="chat-container">
-    <div id="messages">
-      <div class="msg system">Neural runtime initialized. Zero external network egress.</div>
-    </div>
-
-    <div id="attachment-strip">
-      <span id="attachment-label"></span>
-      <span style="cursor:pointer; color:#f87171;" onclick="clearImageAttachment()">✕ Remove Image</span>
+  <main class="main-area">
+    <div class="chat-container" id="chat-container">
+      <div class="system-msg">Neural runtime initialized. Zero external network egress.</div>
     </div>
 
-    <div id="input-bar">
-      <textarea id="prompt-input" placeholder="Type a prompt or query... (Shift+Enter for newline)"></textarea>
-      <button id="send-btn" onclick="sendMessage()">Send</button>
+    <div class="input-dock">
+      <div class="attachment-pill" id="attachment-badge">
+        <span id="attachment-name">🖼️ Attached Image</span>
+        <span class="remove-btn" onclick="clearAttachment()">✕ Remove Image</span>
+      </div>
+      <div class="input-row">
+        <textarea id="prompt-input" placeholder="Type a prompt or query... (Shift+Enter for newline)"
+          onkeydown="handleKeyDown(event)"></textarea>
+        <button class="btn-send" onclick="sendPrompt()">Send</button>
+      </div>
     </div>
-  </div>
+  </main>
 
   <script>
-    const messagesEl = document.getElementById('messages');
-    const inputEl = document.getElementById('prompt-input');
-    const sendBtn = document.getElementById('send-btn');
-    const modelSelect = document.getElementById('model-select');
-    let history = [];
-    let currentImageBase64 = null;
+    let currentBase64Image = null;
+    let chatHistory = [];
 
     async function loadStatus() {
       try {
-        const res = await fetch('/api/status');
+        const res = await fetch("/api/status");
         const data = await res.json();
-        document.getElementById('hw-status').innerText = `${data.cpu_threads} CPU Threads | ${data.gpu_detected ? 'Apple Metal (M1) Active' : 'CPU Mode'}`;
-        document.getElementById('vault-status').innerText = `${data.indexed_chunks ?? 0} vector chunks indexed`;
-        
-        modelSelect.innerHTML = '';
+
+        const gpuTag = data.gpu_detected ? "Apple Metal (M1) Active" : "CPU Only";
+        document.getElementById("hw-status").textContent = `${data.cpu_threads} CPU Threads | ${gpuTag}`;
+        document.getElementById("vault-status").textContent = `${data.indexed_chunks} vector chunks indexed`;
+
+        const modelSelect = document.getElementById("model-select");
+        modelSelect.innerHTML = "";
         data.available_models.forEach(m => {
-          const opt = document.createElement('option');
+          const opt = document.createElement("option");
           opt.value = m;
-          opt.innerText = m;
+          opt.textContent = m;
           if (m === data.active_model) opt.selected = true;
           modelSelect.appendChild(opt);
         });
       } catch (err) {
-        document.getElementById('hw-status').innerText = 'Backend offline';
+        console.error("Failed to load status:", err);
       }
     }
-    loadStatus();
 
     async function switchModel(modelName) {
-      appendMessage('system', `Switching active weights to ${modelName}...`);
-      await fetch('/api/switch-model', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: modelName })
-      });
-      appendMessage('system', `Loaded ${modelName} successfully.`);
-    }
-
-    async function indexPdf(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      appendMessage('system', `Indexing and embedding ${file.name} locally...`);
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const res = await fetch('/api/index-document', { method: 'POST', body: formData });
-      const data = await res.json();
-
-      if (data.status === 'success') {
-        appendMessage('system', `Indexed ${data.chunks_indexed} semantic chunks into SQLite vault.`);
-        loadStatus();
-      } else {
-        appendMessage('system', `Indexing failed: ${data.message}`);
+      appendSystemMessage(`Switching active weights to ${modelName}...`);
+      try {
+        const res = await fetch("/api/switch-model", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model: modelName })
+        });
+        const data = await res.json();
+        if (data.status === "success") {
+          appendSystemMessage(`Loaded ${modelName} successfully.`);
+        }
+      } catch (err) {
+        appendSystemMessage(`Failed to switch model: ${err.message}`);
       }
     }
 
-    async function clearVault() {
-      await fetch('/api/clear-vault', { method: 'POST' });
-      appendMessage('system', 'Knowledge vault cleared.');
-      loadStatus();
-    }
-
-    function attachImage(event) {
+    function handleImageSelection(event) {
       const file = event.target.files[0];
       if (!file) return;
 
       const reader = new FileReader();
-      reader.onload = function(e) {
-        currentImageBase64 = e.target.result;
-        document.getElementById('attachment-strip').style.display = 'flex';
-        document.getElementById('attachment-label').innerText = `🖼️ Attached Image: ${file.name}`;
+      reader.onload = function (e) {
+        currentBase64Image = e.target.result;
+        document.getElementById("attachment-name").textContent = `🖼️ Attached Image: ${file.name}`;
+        document.getElementById("attachment-badge").style.display = "inline-flex";
       };
       reader.readAsDataURL(file);
+      event.target.value = "";
     }
 
-    function clearImageAttachment() {
-      currentImageBase64 = null;
-      document.getElementById('attachment-strip').style.display = 'none';
-      document.getElementById('image-file-input').value = '';
+    function clearAttachment() {
+      currentBase64Image = null;
+      document.getElementById("attachment-badge").style.display = "none";
     }
 
-    inputEl.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
+    function appendSystemMessage(text) {
+      const chat = document.getElementById("chat-container");
+      const div = document.createElement("div");
+      div.className = "system-msg";
+      div.textContent = text;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function appendUserMessage(text, imgBase64) {
+      const chat = document.getElementById("chat-container");
+      const div = document.createElement("div");
+      div.className = "message user";
+
+      if (imgBase64) {
+        const img = document.createElement("img");
+        img.src = imgBase64;
+        img.className = "chat-thumbnail";
+        div.appendChild(img);
       }
-    });
 
-    async function sendMessage() {
-      const prompt = inputEl.value.trim();
-      if (!prompt) return;
+      const p = document.createElement("p");
+      p.textContent = text;
+      div.appendChild(p);
 
-      appendMessage('user', prompt);
-      inputEl.value = '';
-      sendBtn.disabled = true;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
 
-      const assistantMsg = appendMessage('assistant', '...');
+    function appendAIMessage() {
+      const chat = document.getElementById("chat-container");
+      const div = document.createElement("div");
+      div.className = "message ai";
+      div.textContent = "...";
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+      return div;
+    }
 
-      let userContent;
-      if (currentImageBase64) {
-        userContent = [
-          { type: 'text', text: prompt },
-          { type: 'image_url', image_url: { url: currentImageBase64 } }
+    function handleKeyDown(event) {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        sendPrompt();
+      }
+    }
+
+    async function sendPrompt() {
+      const input = document.getElementById("prompt-input");
+      const prompt = input.value.trim();
+      const imgData = currentBase64Image;
+
+      if (!prompt && !imgData) return;
+
+      input.value = "";
+      clearAttachment();
+
+      appendUserMessage(prompt || "Analyze attached image", imgData);
+
+      let contentPayload;
+      if (imgData) {
+        contentPayload = [
+          { type: "text", text: prompt || "Describe what you see in this image." },
+          { type: "image_url", image_url: { url: imgData } }
         ];
-        clearImageAttachment();
       } else {
-        userContent = prompt;
+        contentPayload = prompt;
       }
-      
-      const payload = {
-        messages: [
-          { role: 'system', content: document.getElementById('sys-prompt').value },
-          ...history,
-          { role: 'user', content: userContent }
-        ]
-      };
+
+      const messagesToSend = [];
+
+      // Vision models evaluate single-turn image queries best without chat history pollution
+      if (!imgData) {
+        const systemDirective = document.getElementById("system-directive").value.trim();
+        if (systemDirective) {
+          messagesToSend.push({ role: "system", content: systemDirective });
+        }
+        chatHistory.slice(-4).forEach(m => messagesToSend.push(m));
+      }
+
+      messagesToSend.push({ role: "user", content: contentPayload });
+
+      const aiElem = appendAIMessage();
+      let completeResponse = "";
 
       try {
-        const res = await fetch('/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+        const response = await fetch("/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            messages: messagesToSend,
+            stream: true,
+            temperature: 0.2
+          })
         });
 
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder('utf-8');
-        assistantMsg.innerText = '';
-        let fullResponse = '';
+        if (!response.ok) {
+          throw new Error(`Inference error: ${response.statusText}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        aiElem.textContent = "";
 
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n');
+
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split("\n");
+
           for (const line of lines) {
-            if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+            const trimmed = line.trim();
+            if (trimmed.startsWith("data: ") && trimmed !== "data: [DONE]") {
               try {
-                const json = JSON.parse(line.substring(6));
-                const text = json.choices[0]?.delta?.content || '';
-                fullResponse += text;
-                assistantMsg.innerText = fullResponse;
-                messagesEl.scrollTop = messagesEl.scrollHeight;
-              } catch (e) {}
+                const parsed = JSON.parse(trimmed.slice(6));
+                const token = parsed.choices?.[0]?.delta?.content || "";
+                completeResponse += token;
+                aiElem.textContent = completeResponse;
+                document.getElementById("chat-container").scrollTop = document.getElementById("chat-container").scrollHeight;
+              } catch (e) {
+                // Fragment boundary
+              }
             }
           }
         }
 
-        history.push({ role: 'user', content: prompt });
-        history.push({ role: 'assistant', content: fullResponse });
+        if (!completeResponse.trim()) {
+          aiElem.textContent = "[Model returned empty response]";
+        }
+
+        chatHistory.push({ role: "user", content: prompt });
+        chatHistory.push({ role: "assistant", content: completeResponse });
+
       } catch (err) {
-        assistantMsg.innerText = '[Error: Inference stream failed]';
-      } finally {
-        sendBtn.disabled = false;
+        aiElem.textContent = `[Error: ${err.message}]`;
       }
     }
 
-    function appendMessage(role, text) {
-      const div = document.createElement('div');
-      div.className = `msg ${role}`;
-      div.innerText = text;
-      messagesEl.appendChild(div);
-      messagesEl.scrollTop = messagesEl.scrollHeight;
-      return div;
+    async function uploadPDF(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      appendSystemMessage(`Indexing "${file.name}" into local SQLite vault...`);
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const res = await fetch("/api/index-document", {
+          method: "POST",
+          body: formData
+        });
+        const data = await res.json();
+        if (data.status === "success") {
+          appendSystemMessage(`Indexed ${data.chunks_indexed} vector chunks from "${data.filename}".`);
+          loadStatus();
+        } else {
+          appendSystemMessage(`Indexing failed: ${data.message}`);
+        }
+      } catch (err) {
+        appendSystemMessage(`Indexing error: ${err.message}`);
+      }
+      event.target.value = "";
     }
+
+    async function clearVault() {
+      if (!confirm("Clear all indexed vector chunks from SQLite database?")) return;
+      try {
+        await fetch("/api/clear-vault", { method: "POST" });
+        appendSystemMessage("Knowledge vault cleared.");
+        loadStatus();
+      } catch (err) {
+        appendSystemMessage(`Failed to clear vault: ${err.message}`);
+      }
+    }
+
+    window.onload = loadStatus;
   </script>
 </body>
+
 </html>

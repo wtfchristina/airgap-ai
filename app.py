@@ -50,7 +50,6 @@ def get_system_hardware():
     return threads, is_apple_silicon
 
 def get_available_models():
-    # Only return primary GGUFs, exclude standalone projector files
     files = glob.glob("models/*.gguf")
     return [os.path.basename(f) for f in files if "mmproj" not in f]
 
@@ -64,9 +63,26 @@ def stop_llama_server():
             llama_process.kill()
         llama_process = None
 
+def find_matching_projector(model_filename: str):
+    """Accurately pairs the multimodal projector to the active text model."""
+    name_lower = model_filename.lower()
+    projectors = glob.glob("models/*mmproj*.gguf")
+    
+    if "llava-phi-3" in name_lower:
+        match = [p for p in projectors if "llava-phi-3" in p.lower()]
+        if match: return os.path.abspath(match[0])
+    elif "moondream" in name_lower:
+        match = [p for p in projectors if "moondream" in p.lower()]
+        if match: return os.path.abspath(match[0])
+    elif "llava" in name_lower:
+        match = [p for p in projectors if "llava" in p.lower()]
+        if match: return os.path.abspath(match[0])
+        
+    return None
+
 def start_llama_server(model_filename: str):
     global llama_process, current_model_file
-    model_path = os.path.join("models", model_filename)
+    model_path = os.path.abspath(os.path.join("models", model_filename))
     if not os.path.exists(model_path):
         return False
 
@@ -88,24 +104,34 @@ def start_llama_server(model_filename: str):
         "--host", "127.0.0.1"
     ]
 
-    # Multimodal projector auto-link
-    base_prefix = model_filename.split("-")[0]
-    potential_projectors = glob.glob(f"models/{base_prefix}*mmproj*.gguf")
-    if potential_projectors:
-        print(f"[VISION] Attaching multimodal projector: {potential_projectors[0]}")
-        cmd.extend(["--mmproj", potential_projectors[0]])
+    proj_path = find_matching_projector(model_filename)
+    if proj_path:
+        print(f"[VISION] Successfully linked projector: {proj_path}")
+        cmd.extend(["--mmproj", proj_path])
+    else:
+        print("[LLM] Running in standard language mode (no projector linked).")
 
-    print(f"[LAUNCH] Executing inference daemon: {' '.join(cmd)}")
-    llama_process = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    print(f"[LAUNCH] {' '.join(cmd)}")
+    llama_process = subprocess.Popen(cmd)
     current_model_file = model_filename
-    time.sleep(2)
+
+    for _ in range(30):
+        try:
+            r = httpx.get(f"{LLAMA_SERVER_URL}/health", timeout=1.0)
+            if r.status_code == 200:
+                print("[READY] llama-server online and responsive.")
+                break
+        except Exception:
+            time.sleep(0.5)
+
     return True
 
 @app.on_event("startup")
 async def startup_event():
     models = get_available_models()
     if models:
-        target = "llama-3.2-3b.gguf" if "llama-3.2-3b.gguf" in models else models[0]
+        # Default to multimodal model if present, otherwise Llama
+        target = next((m for m in models if "llava" in m.lower()), models[0])
         start_llama_server(target)
 
 @app.on_event("shutdown")
@@ -154,7 +180,7 @@ async def index_document(file: UploadFile = File(...)):
         chunks = chunk_text(full_text)
 
         if not chunks:
-            return JSONResponse({"status": "error", "message": "No extractable text found"}, status_code=400)
+            return JSONResponse({"status": "error", "message": "No text extracted"}, status_code=400)
 
         embeddings = list(embed_model.embed(chunks))
 
@@ -170,7 +196,7 @@ async def index_document(file: UploadFile = File(...)):
 
         return {"status": "success", "filename": file.filename, "chunks_indexed": len(chunks)}
     except Exception as e:
-        return JSONResponse({"status": "error", "message": f"{type(e).__name__}: {str(e)}"}, status_code=500)
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
 @app.post("/api/clear-vault")
 async def clear_vault():
@@ -209,17 +235,25 @@ async def chat_proxy(request: Request):
     body = await request.json()
     messages = body.get("messages", [])
 
-    # Text RAG enrichment if last message is pure text
-    if messages and messages[-1]["role"] == "user" and isinstance(messages[-1]["content"], str):
-        user_query = messages[-1]["content"]
-        relevant_context = retrieve_relevant_context(user_query)
-        if relevant_context:
-            messages[-1]["content"] = (
-                f"Context from indexed offline documents:\n\"\"\"\n{relevant_context}\n\"\"\"\n\n"
-                f"User Question: {user_query}\nAnswer strictly using the provided context if possible."
-            )
+    # Check if the last turn is a visual request
+    has_image = False
+    if messages and isinstance(messages[-1].get("content"), list):
+        for part in messages[-1]["content"]:
+            if part.get("type") == "image_url":
+                has_image = True
+                break
 
-    body["messages"] = messages
+    if not has_image:
+        # Standard RAG vector injection for plain text conversations
+        if messages and messages[-1].get("role") == "user" and isinstance(messages[-1].get("content"), str):
+            user_query = messages[-1]["content"]
+            relevant_context = retrieve_relevant_context(user_query)
+            if relevant_context:
+                messages[-1]["content"] = (
+                    f"Context from indexed offline documents:\n\"\"\"\n{relevant_context}\n\"\"\"\n\n"
+                    f"User Question: {user_query}\nAnswer strictly using the provided context if possible."
+                )
+
     body["stream"] = True
 
     client = httpx.AsyncClient(timeout=180.0)
